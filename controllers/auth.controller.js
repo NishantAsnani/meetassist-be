@@ -8,7 +8,7 @@ const jwtSecret = process.env.JWT_SECRET || "your_jwt_secret";
 const {getOAuthClient}=require("../utils/helper");
 const {google}=require("googleapis");
 const axios=require("axios");
-
+const meetingServices=require("../services/meeting.service");
 async function Login(req, res) {
   try {
     const { email, password } = req.body;
@@ -147,14 +147,14 @@ async function getGoogleToken(req,res){
     user.googleTokens=tokens;
     await user.save();
 
+    const syncGoogleToDatabase=await meetingServices.syncGoogleCalenderToDB(userId);
+
+    
     res.redirect(`${process.env.FRONTEND_URL}/login`);
 
-    // return sendSuccessResponse(
-    //   res,
-    //   {url:`${process.env.FRONTEND_URL}/login`},
-    //   `Google Calendar connected for user ${userId}`,
-    //   STATUS_CODE.SUCCESS
-    // );
+    
+
+    
   }catch(err){
     return sendErrorResponse(
       res,

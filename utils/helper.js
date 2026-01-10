@@ -6,6 +6,7 @@ const supabaseClient=createClient(supabaseUrl,supabaseKey);
 const upload = multer({ storage: multer.memoryStorage() });
 const {google}=require("googleapis");
 
+
 async function uploadAudioFile(file,userId){
     try{
         const { data, error } = await supabaseClient.storage
@@ -73,29 +74,35 @@ async function uploadTextFile(textBuffer, userId) {
 }
 
 async function getFileFromSupabase(filePath) {
-    try {
-        const { data, error } = await supabaseClient.storage
-            .from('SAIL')
-            .download(filePath);
-        if (error) {
-            console.log("Supabase Download Error: ", error);
-            return {
-                status: 'error',
-                message: 'File download failed',
-                data: null
-            };
-        }
-        else {
-            return {
-                status: 'success',
-                message: 'File downloaded successfully',
-                data: data,
-            }
-        }
-    } catch (err) {
-        throw new Error(err);
+  try {
+    const { data, error } = await supabaseClient.storage
+      .from("SAIL")
+      .download(filePath);
+
+    if (error) {
+      console.error("Supabase Download Error:", error);
+      return {
+        status: "error",
+        message: "File download failed",
+        data: null,
+      };
     }
+
+    // Convert Blob → Buffer (Node.js)
+    const buffer = Buffer.from(await data.arrayBuffer());
+
+    return {
+      status: "success",
+      message: "File downloaded successfully",
+      data: buffer,
+    };
+
+  } catch (err) {
+    console.error("getFileFromSupabase Exception:", err);
+    throw err;
+  }
 }
+
 
 const formatTime = (ms) => {
   const seconds = Math.floor((ms / 1000) % 60);
@@ -120,11 +127,23 @@ function getJiraOAuthClient() {
 );
 }
 
+async function getSignedUrl(filePath) {
+    const { data, error } = await supabaseClient.storage
+      .from("SAIL")
+      .createSignedUrl(filePath,300);
+
+      return data;
+}
+
+
+
 module.exports={
     uploadAudioFile,
     uploadTextFile,
     upload,
     formatTime,
     getOAuthClient,
-    getJiraOAuthClient
+    getJiraOAuthClient,
+    getFileFromSupabase,
+    getSignedUrl,
 }

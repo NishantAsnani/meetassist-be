@@ -1,9 +1,10 @@
-const { uploadAudioFile } = require('../utils/helper');
+const { uploadAudioFile,getSignedUrl } = require('../utils/helper');
 const { sendSuccessResponse,sendErrorResponse } = require('../utils/response');
 const { STATUS_CODE } = require('../utils/constants');
 const meetingServices = require('../services/meeting.service');
 const meeting=require('../models/meetings');
 const meetingMetric=require('../models/meetingMetrics');
+
 
 async function uploadAndProcessFile(req,res){
     try{
@@ -41,12 +42,16 @@ async function uploadAndProcessFile(req,res){
 
     await meeting.findByIdAndUpdate(meetingId,{
         audioFilePath:uploadFile.data.fullPath,
-        textFilePath:processFile.data.fullPath
+        textFilePath:processFile.data.textFile.fullPath
     });
+
+    const textFile=await getSignedUrl(processFile.data.textFile.path);
+
+    const analyzeTextFile=await meetingServices.analyzeTranscriptFile(meetingId,processFile.data.transcript);
 
     return sendSuccessResponse(
         res,
-        {audioFile:uploadFile.data,textFile:processFile.data},
+        {audioFile:uploadFile.data,textFile},
         "File uploaded and processed successfully",
         STATUS_CODE.SUCCESS
     )
@@ -79,7 +84,7 @@ async function addMeetingMetrics(req,res){
             )
         }
 
-        const addMetrics=await meetingServices.addMeetingMetrics(metricsResponse,meetingId);
+        
 
         if(addMetrics.status!='success'){
             return sendErrorResponse(
@@ -130,8 +135,62 @@ async function getMeetings(req,res){
     }
 }
 
+async function getAllMeetings(req,res){
+    try{
+        const userId=req.user.id;
+        const meetings=await meeting.find({userId:userId}).sort({createdAt:-1});
+        return sendSuccessResponse(
+            res,
+            meetings,
+            "Meetings retrieved successfully",
+            STATUS_CODE.SUCCESS
+        )
+    }catch(err){
+        console.log(err)
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
+
+
+async function getMeetingById(req,res){
+    try{
+        const meetingId=req.params.id;
+        const meetingData=await meeting.findById(meetingId);
+
+        if(!meetingData){
+            return sendErrorResponse(
+                res,
+                {},
+                "Meeting not found",
+                STATUS_CODE.NOT_FOUND
+            )
+        }
+        return sendSuccessResponse(
+            res,
+            meetingData,
+            "Meeting retrieved successfully",
+            STATUS_CODE.SUCCESS
+        )
+    }
+    catch(err){
+        console.log(err)
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
 module.exports={
     uploadAndProcessFile,
     addMeetingMetrics,
-    getMeetings
+    getMeetings,
+    getAllMeetings,
+    getMeetingById
 }

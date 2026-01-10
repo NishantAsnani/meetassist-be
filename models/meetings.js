@@ -16,6 +16,12 @@ const meetingSchema = new Schema({
         ref:'user',
         required:true
     },
+    googleCalendarId:{
+        type:String,
+    },
+    googleEventId:{
+        type:String,
+    },
     endedAt: {
         type: Date,
         required: true
@@ -38,6 +44,9 @@ const meetingSchema = new Schema({
     textFilePath:{
         type:String,
     },
+    lastSyncedAt:{
+        type:Date,
+    }
     
 }, { timestamps: true });
 
