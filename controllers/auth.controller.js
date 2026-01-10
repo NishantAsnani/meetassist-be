@@ -7,6 +7,7 @@ const authServices = require("../services/auth.service");
 const jwtSecret = process.env.JWT_SECRET || "your_jwt_secret";
 const {getOAuthClient}=require("../utils/helper");
 const {google}=require("googleapis");
+const axios=require("axios");
 
 async function Login(req, res) {
   try {
@@ -81,7 +82,9 @@ async function Signup(req, res) {
       email,
       password,
       institute,
-      googleTokens:{}
+      googleTokens:{},
+      jiraAuthTokens:{},
+      jiraCloudId:"",
     });
 
     if (createUser) {
@@ -106,7 +109,7 @@ async function googleSignup(req,res){
   try{
 
     const oauth2Client = getOAuthClient();
-    console.log("UserID:", req.query.userId);
+    
     
 
     const url = oauth2Client.generateAuthUrl({
@@ -144,12 +147,14 @@ async function getGoogleToken(req,res){
     user.googleTokens=tokens;
     await user.save();
 
-    sendSuccessResponse(
-      res,
-      {},
-      `Google Calendar connected for user ${userId}`,
-      STATUS_CODE.SUCCESS
-    );
+    res.redirect(`${process.env.FRONTEND_URL}/login`);
+
+    // return sendSuccessResponse(
+    //   res,
+    //   {url:`${process.env.FRONTEND_URL}/login`},
+    //   `Google Calendar connected for user ${userId}`,
+    //   STATUS_CODE.SUCCESS
+    // );
   }catch(err){
     return sendErrorResponse(
       res,
@@ -251,7 +256,91 @@ async function fetchGoogleCalenders(req,res){
   }
 }
 
+async function jiraSignup(req,res){
+  try{
+     const  userId  = req.query.userId;
+    console.log("User ID:", userId); // Debugging line
+  const authUrl =
+      `${process.env.JIRA_AUTH_URL}` +
+      `?audience=api.atlassian.com` +
+      `&client_id=${process.env.JIRA_CLIENT_ID}` +
+      `&scope=${encodeURIComponent('read:jira-work read:jira-user')}` +
+      `&redirect_uri=${encodeURIComponent(process.env.JIRA_REDIRECT_URI)}` +
+      `&state=${userId}` +
+      `&response_type=code` +
+      `&prompt=consent`;
 
+    return sendSuccessResponse(
+      res,
+      { auth_url:authUrl },
+      "Jira Signup endpoint hit successfully",
+      STATUS_CODE.SUCCESS
+    );
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
+async function getJiraToken(req,res){
+  try{
+    const { code, state: userId } = req.query;
+    
+  const tokenRes = await axios.post(
+      process.env.JIRA_TOKEN_URL,
+      {
+        grant_type: "authorization_code",
+        client_id: process.env.JIRA_CLIENT_ID,
+        client_secret: process.env.JIRA_CLIENT_SECRET,
+        code,
+        redirect_uri: process.env.JIRA_REDIRECT_URI
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("Jira Token Response:", tokenRes.data); // Debugging line
+
+    const tokens = tokenRes.data;
+  const user = await User.findById(userId);
+  user.jiraTokens = tokens;
+
+  console.log("Jira Tokens:", tokens); // Debugging line
+  await user.save();
+
+  // Fetch Cloud ID
+  const resourceRes = await axios.get(
+    "https://api.atlassian.com/oauth/token/accessible-resources",
+    { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+  );
+
+  user.jiraCloudId = resourceRes.data[0].id;
+  await user.save();
+
+  return sendSuccessResponse(
+    res,
+    {},
+    `Jira connected for user ${userId}`,
+    STATUS_CODE.SUCCESS
+  )
+}catch(err){
+
+  console.log(err)
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
 
 
 module.exports = {
@@ -260,5 +349,7 @@ module.exports = {
   googleSignup,
   getGoogleToken,
   fetchGoogleCalenderEvents,
-  fetchGoogleCalenders
+  fetchGoogleCalenders,
+  jiraSignup,
+  getJiraToken
 };

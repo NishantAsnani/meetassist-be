@@ -38,6 +38,7 @@ const meetingSchema = new Schema({
     textFilePath:{
         type:String,
     },
+    
 }, { timestamps: true });
 
 

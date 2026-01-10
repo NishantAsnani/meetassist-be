@@ -9,7 +9,11 @@ router.get('/',auth,userControllers.getAllUsers)
 
 router.get('/googleSignup',authControllers.googleSignup)
 
+router.get('/jiraSignup',authControllers.jiraSignup)
+
 router.get('/googleAuthUrl',authControllers.getGoogleToken)
+
+router.get('/jiraAuthUrl',authControllers.getJiraToken)
 
 router.get('/fetchGoogleEvents',auth,authControllers.fetchGoogleCalenderEvents)
 

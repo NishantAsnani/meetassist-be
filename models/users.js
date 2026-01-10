@@ -23,6 +23,13 @@ const userSchema = new Schema({
     institute: {
         type: String,
         required: true
+    },
+    jiraCloudId:{
+        type:String,
+    },
+    jiraAuthTokens:{
+        type:Object,
+        default:{}
     }
 }, { timestamps: true });
 

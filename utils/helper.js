@@ -112,10 +112,19 @@ function getOAuthClient() {
 );
 }
 
+function getJiraOAuthClient() {
+  return new google.auth.OAuth2(
+  process.env.JIRA_CLIENT_ID,
+    process.env.JIRA_CLIENT_SECRET,
+    process.env.JIRA_REDIRECT_URI
+);
+}
+
 module.exports={
     uploadAudioFile,
     uploadTextFile,
     upload,
     formatTime,
-    getOAuthClient
+    getOAuthClient,
+    getJiraOAuthClient
 }
