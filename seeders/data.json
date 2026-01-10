@@ -1,0 +1,15 @@
+{
+  "title": "Weekly Product Sync Meeting",
+  "startedAt": "2026-01-08T09:30:00.000Z",
+  "endedAt": "2026-01-08T10:15:00.000Z",
+  "short_summary": "Discussion on current sprint progress, production issues, and upcoming feature priorities.",
+  "long_summary": "The team reviewed the progress of the ongoing sprint, discussed blockers related to recent production bugs, and aligned on priorities for the next sprint. Action items were assigned to improve deployment stability and optimize API performance. The meeting also covered feedback from stakeholders regarding the new dashboard feature.",
+  "improvements": [
+    "Share agenda before the meeting to improve focus",
+    "Limit discussion time per topic to avoid overruns",
+    "Document action items more clearly during the meeting",
+    "Ensure all stakeholders join on time"
+  ],
+  "Mom": "Sprint progress reviewed; deployment issues discussed; API optimization assigned to backend team; dashboard feedback noted; next sprint priorities finalized.",
+  "audioFilePath": "SAIL/meetings/audio/weekly-product-sync-2026-01-08.mp3"
+}

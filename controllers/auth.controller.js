@@ -5,6 +5,9 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const authServices = require("../services/auth.service");
 const jwtSecret = process.env.JWT_SECRET || "your_jwt_secret";
+const {getOAuthClient}=require("../utils/helper");
+const {google}=require("googleapis");
+
 async function Login(req, res) {
   try {
     const { email, password } = req.body;
@@ -57,7 +60,7 @@ async function Login(req, res) {
 
 async function Signup(req, res) {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, institute } = req.body;
 
     
 
@@ -77,6 +80,7 @@ async function Signup(req, res) {
       name,
       email,
       password,
+      institute
     });
 
     if (createUser) {
@@ -97,9 +101,161 @@ async function Signup(req, res) {
   }
 }
 
+async function googleSignup(req,res){
+  try{
+
+    const oauth2Client = getOAuthClient();
+    console.log("UserID:", req.query.userId);
+    
+
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      prompt: "consent",
+      scope: ["https://www.googleapis.com/auth/calendar.readonly"],
+      state: req.query.userId, // 🔑 
+    });
+
+    sendSuccessResponse(
+      res,
+      {auth_url:url},
+      "Google Auth URL generated successfully",
+      STATUS_CODE.SUCCESS
+    );
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
+async function getGoogleToken(req,res){
+  try{
+    const { code, state } = req.query;
+    const userId = state;
+    const oauth2Client = getOAuthClient();
+    const { tokens } = await oauth2Client.getToken(code);
+    
+
+    const user=await User.findById(userId);
+    user.googleTokens=tokens;
+    await user.save();
+
+    sendSuccessResponse(
+      res,
+      {},
+      `Google Calendar connected for user ${userId}`,
+      STATUS_CODE.SUCCESS
+    );
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
+async function fetchGoogleCalenderEvents(req,res){
+  try{
+    const userId=req.user.id;
+    const user=await User.findById(userId);
+    const calenderId=req.query.calenderId || "primary";
+
+    if(!user.googleTokens){
+      return sendErrorResponse(
+        res,
+        {},
+        "User not connected to Google",
+        STATUS_CODE.UNAUTHORIZED
+      );
+    }
+    
+    const oauth2Client = getOAuthClient();
+    oauth2Client.setCredentials(user.googleTokens);
+    const calendar = google.calendar({
+      version: "v3",
+      auth: oauth2Client,
+    });
+
+    const eventsResponse = await calendar.events.list({
+      calendarId: calenderId,
+      timeMin: new Date().toISOString(),
+      maxResults: 10,
+      singleEvents: true,
+      orderBy: "startTime",
+    });
+
+    const events = eventsResponse.data.items;
+
+    return sendSuccessResponse(
+      res,
+      {events},
+      "Fetched Google Calendar events successfully",
+      STATUS_CODE.SUCCESS
+    );
+
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
+async function fetchGoogleCalenders(req,res){
+  try{
+    const userId=req.user.id;
+    const user=await User.findById(userId);
+
+    if(!user.googleTokens){
+      return sendErrorResponse(
+        res,
+        {},
+        "User not connected to Google",
+        STATUS_CODE.UNAUTHORIZED
+      );
+    }
+    
+    const oauth2Client = getOAuthClient();
+    oauth2Client.setCredentials(user.googleTokens);
+    const calendar = google.calendar({
+      version: "v3",
+      auth: oauth2Client,
+    });
+
+    const calendarListResponse = await calendar.calendarList.list();
+
+    const calendars = calendarListResponse.data.items;
+
+    return sendSuccessResponse(
+      res,
+      {calendars},
+      "Fetched Google Calendars successfully",
+      STATUS_CODE.SUCCESS
+    );
+
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
 
 
 module.exports = {
   Login,
-  Signup
+  Signup,
+  googleSignup,
+  getGoogleToken,
+  fetchGoogleCalenderEvents,
+  fetchGoogleCalenders
 };
