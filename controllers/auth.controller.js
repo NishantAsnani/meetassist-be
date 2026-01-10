@@ -80,13 +80,14 @@ async function Signup(req, res) {
       name,
       email,
       password,
-      institute
+      institute,
+      googleTokens:{}
     });
 
     if (createUser) {
       return sendSuccessResponse(
         res,
-        {data:createUser.data},
+        {id:createUser._id},
         "User Created Successfully",
         STATUS_CODE.CREATED
       );
@@ -249,6 +250,8 @@ async function fetchGoogleCalenders(req,res){
     );
   }
 }
+
+
 
 
 module.exports = {

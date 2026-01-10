@@ -17,7 +17,8 @@ const userSchema = new Schema({
         required: true
     },
     googleTokens:{
-      type:Object
+      type:Object,
+      default:{}
     },
     institute: {
         type: String,
