@@ -18,7 +18,10 @@ router.get('/getMetrics/:id',auth,meetingControllers.getMeetingMetrics)
 
 router.get('/getMeetingTasks/:id',auth,meetingControllers.fetchMeetingTasks)
 
+router.get('/downloadMom/:id',auth,meetingControllers.getMom);
+
 router.get('/:id',auth,meetingControllers.getMeetingById)
 
+router.get
 
 module.exports=router

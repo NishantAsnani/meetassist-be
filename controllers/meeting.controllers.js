@@ -51,6 +51,12 @@ async function uploadAndProcessFile(req,res){
 
     const Mom=await meetingServices.generateMom(meetingId,processFile.data.transcript);
 
+    await meeting.findByIdAndUpdate(meetingId,{
+        audioFilePath:uploadFile.data.fullPath,
+        textFilePath:processFile.data.textFile.fullPath,
+        Mom:Mom.data.fullPath
+    });
+
     return sendSuccessResponse(
         res,
         {audioFile:uploadFile.data,textFile},
@@ -75,7 +81,7 @@ async function getMeetingMetrics(req,res){
     try{
         const meetingId=req.params.id;
 
-        console.log("Meeting ID: ", meetingId);
+
         
         const meetingMetrics=await meetingMetric.findOne({meetingId:meetingId});
 
@@ -517,6 +523,36 @@ async function automateCreateMeeting(req,res){
     }
 }
 
+async function getMom(req,res){
+    try{
+        const meetingId=req.params.id;
+        const meetingData=await meeting.findById(meetingId);
+        if(!meetingData){
+            return sendErrorResponse(
+                res,
+                {},
+                "Meeting not found",
+                STATUS_CODE.NOT_FOUND
+            )
+        }
+        const momFile=await getSignedUrl(meetingData.Mom.split('SAIL/')[1]);
+
+        return sendSuccessResponse(
+            res,
+            {momFileUrl:momFile.signedUrl},
+            "MOM file retrieved successfully",
+            STATUS_CODE.SUCCESS
+        )
+    }catch(err){
+        console.log(err)
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
 
 
 module.exports={
@@ -527,5 +563,6 @@ module.exports={
     chatBotResponse,
     createJiraTicket,
     fetchMeetingTasks,
-    automateCreateMeeting
+    automateCreateMeeting,
+    getMom
 }
