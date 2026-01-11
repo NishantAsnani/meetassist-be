@@ -308,11 +308,13 @@ async function getJiraToken(req,res){
 
     console.log("Jira Token Response:", tokenRes.data); // Debugging line
 
-    const tokens = tokenRes.data;
+  const tokens = tokenRes.data;
   const user = await User.findById(userId);
-  user.jiraTokens = tokens;
 
-  console.log("Jira Tokens:", tokens); // Debugging line
+  console.log("User before saving Jira tokens:", tokens); // Debugging line
+  user.jiraAuthTokens = tokens;
+
+
   await user.save();
 
   // Fetch Cloud ID
@@ -320,6 +322,7 @@ async function getJiraToken(req,res){
     "https://api.atlassian.com/oauth/token/accessible-resources",
     { headers: { Authorization: `Bearer ${tokens.access_token}` } }
   );
+  console.log("Jira Accessible Resources Response:", resourceRes.data); // Debugging line
 
   user.jiraCloudId = resourceRes.data[0].id;
   await user.save();

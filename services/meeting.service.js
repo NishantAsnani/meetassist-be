@@ -15,6 +15,7 @@ const model = genAI.getGenerativeModel({
     maxOutputTokens: 2000,
   },
 });
+const meetingTask=require('../models/meetingTasks');
 
 async function processAudioFile(file,userId) {
     try {
@@ -243,17 +244,123 @@ async function analyzeTranscriptFile(meetingId,textFile) {
         }
         `;
 
+    const TASKS_PROMPT=`
+        Act as a professional Meeting Intelligence Analyst. Your task is to analyze a timestamped, speaker-diarized meeting transcript and extract structured insights strictly in JSON format.
+
+        ANALYSIS OBJECTIVES:
+
+        1) DISCUSSION ITEMS:
+        Identify all distinct things that were discussed during the meeting.
+        For each item, provide:
+        - title: A concise name of the discussed item
+        - description: A short, clear description (1–2 lines)
+        - category: One of ["task", "story", "bug", "error"]
+        - jira_recommended: "yes" or "no"
+        - Use "yes" ONLY if the discussion indicates:
+            • work to be tracked
+            • an issue to be fixed
+            • a task requiring follow-up
+            • a feature, requirement, or investigation
+        - Use "no" for purely informational or contextual discussion
+
+        2) NEXT ACTIONS:
+        Identify all explicit or implied next steps mentioned in the meeting.
+        For each action, provide:
+        - action_item: A concise description of what needs to be done
+        - description: Short explanation of the action
+        - deadline: 
+        - Use an explicit date if mentioned
+        - Otherwise use:
+            • "immediate"
+            • "this week"
+            • "next week"
+            • "unspecified"
+
+        IMPORTANT INTERPRETATION RULES:
+        - Use ONLY the information present in the transcript.
+        - Do NOT invent tasks, deadlines, or intentions.
+        - If a deadline is not mentioned or cannot be inferred, use "unspecified".
+        - Treat interviews, Q&A, or informational sessions carefully — not everything deserves a Jira ticket.
+        - Multiple speakers discussing the same topic should result in ONE consolidated discussion item.
+
+        ONE-SHOT EXAMPLE:
+
+        Input Transcript:
+        [00:00:00 - 00:00:10] Speaker A: The login page is failing for some users on mobile.
+        [00:00:11 - 00:00:20] Speaker B: Yes, it seems related to the new authentication update.
+        [00:00:21 - 00:00:30] Speaker A: We should fix it before the next release.
+        [00:00:31 - 00:00:40] Speaker B: I can take that up and aim to finish by Friday.
+
+        Output JSON:
+        {
+        "discussion_items": [
+            {
+            "title": "Mobile login failure",
+            "description": "Users are experiencing login failures on mobile devices after the authentication update.",
+            "category": "bug",
+            "jira_recommended": "yes"
+            }
+        ],
+        "next_actions": [
+            {
+            "action_item": "Fix mobile login issue",
+            "description": "Investigate and resolve the login failure affecting mobile users.",
+            "deadline": "Friday"
+            }
+        ]
+        }
+
+        CURRENT TASK:
+        Analyze the following timestamped transcript:
+        ${textFile}
+
+        OUTPUT RULES (STRICT):
+        - Return ONLY a valid JSON object.
+        - Do NOT include explanations, markdown, or extra text.
+        - Do NOT wrap the response in code fences.
+        - The response MUST start with '{' and end with '}'.
+
+        JSON SCHEMA (STRICT):
+        {
+        "discussion_items": [
+            {
+            "title": string,
+            "description": string,
+            "category": "task" | "story" | "bug" | "error",
+            "jira_recommended": "yes" | "no"
+            }
+        ],
+        "next_actions": [
+            {
+            "action_item": string,
+            "description": string,
+            "deadline": string
+            }
+        ]
+        }
+
+        `
+
     // Execute with retry logic from our conversation history
     for (let attempt = 1; attempt <= 10; attempt++) {
       try {
         const result = await model.generateContent(PROMPT);
+        const extraTasks=await model.generateContent(TASKS_PROMPT);
         const text = result.response.text();
+        const tasks= extraTasks.response.text();
 
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("No JSON found in response");
 
+        const tasksJsonMatch = tasks.match(/\{[\s\S]*\}/);
+        if (!tasksJsonMatch) throw new Error("No JSON found in tasks response");
+
+        const tasksData = JSON.parse(tasksJsonMatch);
+
         const data = JSON.parse(jsonMatch);
+
+
 
         const metrics={
             engagement_score: data.metrics.engagement_score,
@@ -267,7 +374,15 @@ async function analyzeTranscriptFile(meetingId,textFile) {
             meetingId: meetingId
         }
 
+        const taskAnalysis={
+            discussion_items: tasksData.discussion_items,
+            next_actions:tasksData.next_actions,
+            meetingId: meetingId
+        }
+
         await meetingMetric.create(metrics);
+
+        await meetingTask.create(taskAnalysis);
 
         await meeting.findByIdAndUpdate(meetingId, {
             short_summary: data.summaries.short_summary,
