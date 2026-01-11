@@ -4,7 +4,7 @@ const { STATUS_CODE } = require('../utils/constants');
 const meetingServices = require('../services/meeting.service');
 const meeting=require('../models/meetings');
 const meetingMetric=require('../models/meetingMetrics');
-
+const meetingTasks=require('../models/meetingTasks');
 
 async function uploadAndProcessFile(req,res){
     try{
@@ -383,6 +383,140 @@ Answer:`;
   }
 }
 
+async function createJiraTicket(req,res) {
+try{
+    const {
+    JIRA_EMAIL,
+    JIRA_API_TOKEN,
+    JIRA_BASE_URL,
+    JIRA_PROJECT_KEY
+  } = process.env;
+  
+
+  if (!JIRA_EMAIL || !JIRA_API_TOKEN || !JIRA_BASE_URL || !JIRA_PROJECT_KEY) {
+    throw new Error("Missing Jira environment variables");
+  }
+
+  
+  const meetingData=await meetingTasks.findOne({userId:req.user.id});
+
+  if(!meetingData){
+    return sendErrorResponse(
+        res,
+        {},
+        "Meeting not found",
+        STATUS_CODE.NOT_FOUND
+    )
+  }
+
+  const summary=meetingData.title;
+  const description=meetingData.short_summary;
+  const issueType = "Task"; // You can change this to "Bug", "Story", etc.
+
+ 
+
+  // ✅ Node.js way (not btoa)
+  const credentials = Buffer
+    .from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`)
+    .toString("base64");
+
+  const response = await fetch(
+    `${JIRA_BASE_URL}/rest/api/3/issue`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${credentials}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        fields: {
+          project: { key: JIRA_PROJECT_KEY },
+          summary,
+          description: {
+            type: "doc",
+            version: 1,
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: description
+                  }
+                ]
+              }
+            ]
+          },
+          issuetype: { name: issueType }
+        }
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("Jira API Error:", data);
+    throw new Error(data.errorMessages?.[0] || "Jira ticket creation failed");
+  }
+
+    return sendSuccessResponse(
+        res,
+        {
+            key: data.key,
+            url: `${JIRA_BASE_URL}/browse/${data.key}`
+        },
+        "Jira ticket created successfully",
+        STATUS_CODE.SUCCESS
+    )
+}catch(err){
+    console.log(err)
+    return sendErrorResponse(
+        res,
+        {},
+        "Internal Server Error",
+        STATUS_CODE.SERVER_ERROR
+    )
+}
+}
+
+async function fetchMeetingTasks(req,res){
+    try{
+        const meetingId=req.params.id;
+        const meetingData=await meeting.findById(meetingId);
+        const Tasks=await meetingTasks.find({meetingId});
+
+        return sendSuccessResponse(
+            res,
+            {meetingTasks:Tasks,shortSummary:meetingData.short_summary,longSummary:meetingData.long_summary},
+            "Meeting tasks retrieved successfully",
+            STATUS_CODE.SUCCESS
+        )
+    }catch(err){
+        console.log(err)
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
+
+async function automateCreateMeeting(req,res){
+    try{
+
+    }catch(err){
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
+
 
 
 module.exports={
@@ -390,5 +524,8 @@ module.exports={
     getMeetingMetrics,
     getAllMeetings,
     getMeetingById,
-    chatBotResponse
+    chatBotResponse,
+    createJiraTicket,
+    fetchMeetingTasks,
+    automateCreateMeeting
 }

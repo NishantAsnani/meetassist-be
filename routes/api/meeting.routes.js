@@ -10,9 +10,13 @@ router.post('/processFile',auth,upload.single('file'),meetingControllers.uploadA
 
 router.post('/chatResponse',auth,meetingControllers.chatBotResponse)
 
+router.post('/createJiraTicket',auth,meetingControllers.createJiraTicket)
+
 router.get('/',auth,meetingControllers.getAllMeetings)
 
 router.get('/getMetrics/:id',auth,meetingControllers.getMeetingMetrics)
+
+router.get('/getMeetingTasks/:id',auth,meetingControllers.fetchMeetingTasks)
 
 router.get('/:id',auth,meetingControllers.getMeetingById)
 
