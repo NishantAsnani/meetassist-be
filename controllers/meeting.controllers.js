@@ -49,6 +49,8 @@ async function uploadAndProcessFile(req,res){
 
     const analyzeTextFile=await meetingServices.analyzeTranscriptFile(meetingId,processFile.data.transcript);
 
+    const Mom=await meetingServices.generateMom(meetingId,processFile.data.transcript);
+
     return sendSuccessResponse(
         res,
         {audioFile:uploadFile.data,textFile},
@@ -69,36 +71,27 @@ async function uploadAndProcessFile(req,res){
     }
 }
 
-async function addMeetingMetrics(req,res){
+async function getMeetingMetrics(req,res){
     try{
-        const meetingId=req.body.meetingId;
-        const meetingData=await meeting.findById(meetingId);
-        const metricsResponse=req.body.metricsResponse
+        const meetingId=req.params.id;
 
-        if(!meetingData){   
-            return sendErrorResponse(
-                res,
-                {},
-                "Meeting not found",
-                STATUS_CODE.NOT_FOUND
-            )
-        }
-
+        console.log("Meeting ID: ", meetingId);
         
+        const meetingMetrics=await meetingMetric.findOne({meetingId:meetingId});
 
-        if(addMetrics.status!='success'){
+        if(!meetingMetrics){
             return sendErrorResponse(
                 res,
-                {},
-                "Error adding meeting metrics",
-                STATUS_CODE.SERVER_ERROR
+                meetingMetrics,
+                "Meeting metrics not found",
+                STATUS_CODE.NOT_FOUND
             )
         }
 
         return sendSuccessResponse(
             res,
-            addMetrics.data,
-            "Meeting metrics added successfully",
+            meetingMetrics,
+            "Meeting metrics retrieved successfully",
             STATUS_CODE.SUCCESS
         )
     }catch(err){    
@@ -111,29 +104,6 @@ async function addMeetingMetrics(req,res){
         )
     }
 }       
-
-async function getMeetings(req,res){
-    try{
-    const userId=req.user.id;
-    const page=req.query.page? parseInt(req.query.page) : 1;
-    const limit=req.query.limit? parseInt(req.query.limit) : 10;
-        const meetings=await meeting.find({userId:userId}).sort({createdAt:-1});
-        return sendSuccessResponse(
-            res,
-            meetings,
-            "Meetings retrieved successfully",
-            STATUS_CODE.SUCCESS
-        )
-    }catch(err){
-        console.log(err)
-        return sendErrorResponse(
-            res,
-            {},
-            "Internal Server Error",
-            STATUS_CODE.SERVER_ERROR
-        )
-    }
-}
 
 async function getAllMeetings(req,res){
     try{
@@ -155,7 +125,6 @@ async function getAllMeetings(req,res){
         )
     }
 }
-
 
 async function getMeetingById(req,res){
     try{
@@ -189,8 +158,7 @@ async function getMeetingById(req,res){
 }
 module.exports={
     uploadAndProcessFile,
-    addMeetingMetrics,
-    getMeetings,
+    getMeetingMetrics,
     getAllMeetings,
     getMeetingById
 }

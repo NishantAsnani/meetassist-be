@@ -1,4 +1,4 @@
-const {formatTime, getOAuthClient}=require('../utils/helper');
+const {formatTime, getOAuthClient, uploadPdfFile,generatePDF}=require('../utils/helper');
 const { AssemblyAI } = require('assemblyai');
 const {uploadTextFile}=require('../utils/helper');
 const meetingMetric=require('../models/meetingMetrics');
@@ -8,8 +8,6 @@ const User = require("../models/users");
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fs = require('fs');
-
-
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
   generationConfig: {
@@ -297,11 +295,97 @@ async function analyzeTranscriptFile(meetingId,textFile) {
 }
 
 
+async function generateMom(meetingId,transcript) {
+  const SYSTEM_PROMPT = `Role: You are an expert corporate secretary and project documentation assistant.
+
+Task: Given a raw meeting transcript, extract all relevant information and generate a complete, professionally formatted Minutes of Meeting (MoM) using the following structure.
+
+Instructions:
+1. Identify and extract:
+   * Meeting title
+   * Date, time, venue/platform
+   * Chairperson and minute taker
+   * Attendees and their roles
+   * Absentees (if mentioned)
+   * Agenda items
+   * Detailed discussion under each agenda
+   * Decisions taken
+   * Action items with owners and deadlines
+   * Important observations
+   * Next meeting details
+   * Conclusion
+
+2. Rewrite everything in:
+   * Formal professional language
+   * Clear bullet points
+   * Third-person narrative
+   * Past tense
+
+3. Infer missing fields logically if not explicitly stated (mark them as "Not Specified" if impossible to infer).
+
+4. Output must strictly follow this JSON format:
+{
+  "meetingTitle": "string",
+  "project": "string",
+  "date": "string",
+  "time": "string",
+  "venue": "string",
+  "chairperson": "string",
+  "minuteTaker": "string",
+  "attendees": [{"name": "string", "role": "string"}],
+  "absentees": [{"name": "string", "role": "string"}],
+  "agenda": ["string"],
+  "discussionPoints": [{"agendaItem": "string", "discussion": "string"}],
+  "decisions": [{"decision": "string", "rationale": "string"}],
+  "actionItems": [{"task": "string", "owner": "string", "deadline": "string"}],
+  "observations": ["string"],
+  "nextMeeting": {"date": "string", "time": "string", "venue": "string"},
+  "conclusion": "string",
+  "preparedBy": "string",
+  "approvedBy": "string"
+}
+
+Perform:
+1. Named Entity Recognition (People, Dates, Tasks)
+2. Agenda segmentation
+3. Decision extraction
+4. Action item detection (Task, Owner, Deadline)
+5. Responsibility mapping
+
+Ensure:
+- No hallucinations
+- No missing fields unless truly unavailable
+- Professional corporate language
+- Return ONLY valid JSON, no markdown formatting or additional text`;
+  try{
+    
+  const Meeting=await meeting.findById(meetingId);
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: process.env.MODEL_NAME });
+  const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nTranscript:\n${transcript}`);
+  const clean = res.response.text().replace(/```json|```/g, "").trim();
+  const momData= JSON.parse(clean);
+
+  const pdf=await generatePDF(momData,Meeting);
+
+
+  const uploadedMom=await uploadPdfFile(pdf,Meeting.userId);
+
+  return uploadedMom;
+
+  }catch(err){
+    throw new Error(err);
+  }
+}
+
+
+
 
 
 module.exports={
     processAudioFile,
     addMeetingMetrics,
     syncGoogleCalenderToDB,
-    analyzeTranscriptFile
+    analyzeTranscriptFile,
+    generateMom
 }
