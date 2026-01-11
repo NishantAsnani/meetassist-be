@@ -403,9 +403,10 @@ try{
     throw new Error("Missing Jira environment variables");
   }
 
-  
-  const meetingData=await meetingTasks.findOne({userId:req.user.id});
-
+  console.log("Creating Jira ticket for meeting ID:", req.body.id);
+  console.log(req.body.id);
+  const meetingData=await meetingTasks.findOne({meetingId:req.body.id});
+  const meetingInfo=await meeting.findById(req.body.id);
   if(!meetingData){
     return sendErrorResponse(
         res,
@@ -415,9 +416,9 @@ try{
     )
   }
 
-  const summary=meetingData.title;
-  const description=meetingData.short_summary;
-  const issueType = "Task"; // You can change this to "Bug", "Story", etc.
+  const summary=meetingInfo.title;
+  const description=meetingInfo.short_summary;
+  const issueType = "Task"; 
 
  
 
