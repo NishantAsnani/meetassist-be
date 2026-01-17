@@ -142,7 +142,10 @@ async function getMeetingMetrics(req,res){
 async function getAllMeetings(req,res){
     try{
         const userId=req.user.id;
-        const meetings=await meeting.find({userId:userId}).sort({createdAt:-1});
+        const page=req.query.page? parseInt(req.query.page) : 1;
+        const limit=req.query.limit? parseInt(req.query.limit) : 10;
+        const offset = (page - 1) * limit;
+        const meetings=await meeting.find({userId:userId}).skip(offset).limit(limit)
         return sendSuccessResponse(
             res,
             meetings,

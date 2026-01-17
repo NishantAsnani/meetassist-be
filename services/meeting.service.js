@@ -104,68 +104,92 @@ async function addMeetingMetrics(metricsResponse,meetingId){
     }
 }
 
-async function syncGoogleCalenderToDB(userId) {
+async function syncGoogleCalenderToDB(user) {
   try {
-    const user = await User.findById(userId);
     const oauth2Client = getOAuthClient();
     oauth2Client.setCredentials(user.googleTokens);
-    const calendar = google.calendar({
-      version: "v3",
-      auth: oauth2Client,
-    });
+    
+    const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+    // 1. Get all Calendar IDs
+    const calendarListResponse = await calendar.calendarList.list();
+    const calendarIds = calendarListResponse.data.items.map((c) => c.id);
 
     const allEvents = [];
-    let pageToken = null;
 
-    do {
-      const res = await calendar.events.list({
-        calendarId: "primary",
-        timeMin: new Date(0).toISOString(),
-        singleEvents: true,                 
-        showDeleted: true,                  
-        maxResults: 250,
-        pageToken
-      });
+    // 2. Loop through EACH calendar
+    for (const calId of calendarIds) {
+      let pageToken = null;
+      
+      // 3. Inner Loop: Pagination for the specific calendar
+      do {
+        try {
+          const res = await calendar.events.list({
+            calendarId: calId,
+            timeMin: new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString(), // Sync last 6 months only (Safer)
+            singleEvents: true,
+            showDeleted: false, // Usually you don't want deleted events in DB
+            maxResults: 2500, // Maximize page size to reduce API calls
+            pageToken: pageToken,
+          });
 
-      const events = res.data.items || [];
+          const events = res.data.items || [];
 
-      for (const event of events) {
-        allEvents.push({
-          google_event_id: event.id,
-          calendar_id: event.organizer?.email || "primary",
-          summary: event.summary || "(No title)",
-          description: event.description || null,
-          start_time: event.start?.dateTime || event.start?.date || null,
-          end_time: event.end?.dateTime || event.end?.date || null,
-          meet_link: event.hangoutLink || null,
-        });
-      }
+          for (const event of events) {
+            // Only add events that have summary and time
+            if(event.summary && (event.start?.dateTime || event.start?.date)) {
+                allEvents.push({
+                    google_event_id: event.id,
+                    calendar_id: calId, // Use the actual calendar ID loop variable
+                    summary: event.summary,
+                    description: event.description || "",
+                    start_time: event.start?.dateTime || event.start?.date,
+                    end_time: event.end?.dateTime || event.end?.date,
+                    meet_link: event.hangoutLink || null,
+                });
+            }
+          }
 
-      pageToken = res.data.nextPageToken;
-    } while (pageToken);
-
-    for (const eventData of allEvents) {
-      const existingMeeting = await meeting.findOne({
-        googleEventId: eventData.google_event_id,
-        userId: userId
-      });
-
-      if (!existingMeeting) {
-        await meeting.create({
-          title: eventData.summary,
-          startedAt: eventData.start_time,
-          endedAt: eventData.end_time,
-          userId: userId,
-          googleCalendarId: eventData.calendar_id,
-          googleEventId: eventData.google_event_id,
-          lastSyncedAt: new Date()
-        });
-      }
+          pageToken = res.data.nextPageToken;
+        } catch (calErr) {
+          console.error(`Failed to sync calendar ${calId}:`, calErr.message);
+          // Continue to next calendar even if one fails
+          break; 
+        }
+      } while (pageToken);
     }
-  } catch (err) {
-    throw new Error(err);
-  }
 
+    if (allEvents.length === 0) return;
+
+    // 4. BULK WRITE (Performance: 1 DB call instead of thousands)
+    const bulkOps = allEvents.map((eventData) => ({
+      updateOne: {
+        filter: { googleEventId: eventData.google_event_id, userId: user.id },
+        update: {
+          $set: {
+            title: eventData.summary,
+            startedAt: eventData.start_time,
+            endedAt: eventData.end_time,
+            googleCalendarId: eventData.calendar_id,
+            googleEventId: eventData.google_event_id,
+            lastSyncedAt: new Date(),
+            // Add description/link if your schema supports it
+          },
+        },
+        upsert: true, // Creates if it doesn't exist, Updates if it does
+      },
+    }));
+
+    if (bulkOps.length > 0) {
+      await meeting.bulkWrite(bulkOps);
+    }
+    
+    console.log(`Synced ${allEvents.length} events for user ${userId}`);
+
+  } catch (err) {
+    console.error("Critical Sync Error:", err);
+    throw new Error(err.message);
+  }
 }
 
 async function analyzeTranscriptFile(meetingId,textFile) {

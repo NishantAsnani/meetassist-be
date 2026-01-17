@@ -147,7 +147,7 @@ async function getGoogleToken(req,res){
     user.googleTokens=tokens;
     await user.save();
 
-    const syncGoogleToDatabase=await meetingServices.syncGoogleCalenderToDB(userId);
+    const syncGoogleToDatabase=await meetingServices.syncGoogleCalenderToDB(user);
 
     
     res.redirect(`${process.env.FRONTEND_URL}/login`);
