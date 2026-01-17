@@ -20,6 +20,8 @@ router.get('/getMeetingTasks/:id',auth,meetingControllers.fetchMeetingTasks)
 
 router.get('/downloadMom/:id',auth,meetingControllers.getMom);
 
+router.get('/:id/status',auth,meetingControllers.getMomStatus);
+
 router.get('/:id',auth,meetingControllers.getMeetingById)
 
 

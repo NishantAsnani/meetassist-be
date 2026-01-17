@@ -7,10 +7,11 @@ const meetingMetric=require('../models/meetingMetrics');
 const meetingTasks=require('../models/meetingTasks');
 
 async function uploadAndProcessFile(req,res){
+    const meetingId=req.body.meetingId;
     try{
     const file=req.file;
     const userId=req.user.id;
-    const meetingId=req.body.meetingId;
+    
 
     const uploadFile=await uploadAudioFile(file,userId);
 
@@ -47,30 +48,57 @@ async function uploadAndProcessFile(req,res){
 
     const textFile=await getSignedUrl(processFile.data.textFile.path);
 
-    const analyzeTextFile=await meetingServices.analyzeTranscriptFile(meetingId,processFile.data.transcript);
-
-    const Mom=await meetingServices.generateMom(meetingId,processFile.data.transcript);
-
-    await meeting.findByIdAndUpdate(meetingId,{
-        audioFilePath:uploadFile.data.fullPath,
-        textFilePath:processFile.data.textFile.fullPath,
-        Mom:Mom.data.fullPath
-    });
-
-    return sendSuccessResponse(
+     sendSuccessResponse(
         res,
         {audioFile:uploadFile.data,textFile},
         "File uploaded and processed successfully",
         STATUS_CODE.SUCCESS
     )
 
+    meetingServices.performBackgroundAnalysis(meetingId, processFile.data.transcript)
+            .catch(err => {
+                console.error(`Background Task Failed for Meeting ${meetingId}:`, err);
+            });
 
-    
+    }catch(err){
+        console.log(err)
+      await meeting.findByIdAndUpdate(meetingId, {
+        MomStatus: 'processing'
+      });
+              
+        return sendErrorResponse(
+            res,
+            {},
+            "Internal Server Error",
+            STATUS_CODE.SERVER_ERROR
+        )
+    }
+}
+
+async function getMomStatus(req,res){
+    try{
+        const meetingId=req.params.id;
+        const meetingData=await meeting.findById(meetingId);
+
+        if(!meetingData){
+            return sendErrorResponse(
+                res,
+                {momStatus:'failed'},
+                "Meeting not found",
+                STATUS_CODE.NOT_FOUND
+            )
+        }
+        return sendSuccessResponse(
+            res,
+            {momStatus:meetingData.MomStatus},
+            "MoM status retrieved successfully",
+            STATUS_CODE.SUCCESS
+        )
     }catch(err){
         console.log(err)
         return sendErrorResponse(
             res,
-            {},
+            {momStatus:'failed'},
             "Internal Server Error",
             STATUS_CODE.SERVER_ERROR
         )
@@ -492,6 +520,8 @@ async function fetchMeetingTasks(req,res){
     try{
         const meetingId=req.params.id;
         const meetingData=await meeting.findById(meetingId);
+
+        
         const Tasks=await meetingTasks.find({meetingId});
 
         return sendSuccessResponse(
@@ -565,5 +595,6 @@ module.exports={
     createJiraTicket,
     fetchMeetingTasks,
     automateCreateMeeting,
+    getMomStatus,
     getMom
 }

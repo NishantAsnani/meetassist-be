@@ -38,6 +38,11 @@ const meetingSchema = new Schema({
     Mom:{
         type:String
     },
+    MomStatus:{
+        type:String,
+        enum:['pending','processing','completed','failed'],
+        default:'pending'
+    },
     audioFilePath:{
         type:String,
     },

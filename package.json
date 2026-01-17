@@ -1,5 +1,5 @@
 {
-  "name": "hackathon-be",
+  "name": "SAIL-backend",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.2",
     "multer": "^2.0.2",
+    "newrelic": "^13.9.2",
     "pdfkit": "^0.17.2",
     "supabase-js": "^1.0.4"
   }

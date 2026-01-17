@@ -494,6 +494,26 @@ Ensure:
 }
 
 
+  async function performBackgroundAnalysis(meetingId, transcript) {
+    console.log(`Starting background analysis for meeting: ${meetingId}`);
+    const analyzeTextFile = await analyzeTranscriptFile(meetingId, transcript);
+
+    await meeting.findByIdAndUpdate(meetingId, {
+        MomStatus:'processing'
+    });
+    const Mom = await generateMom(meetingId, transcript);
+
+    
+    await meeting.findByIdAndUpdate(meetingId, {
+        Mom: Mom.data.fullPath,
+        MomStatus:'completed'
+    });
+
+    console.log(`Background analysis completed for meeting: ${meetingId}`);
+}
+
+
+
 
 
 
@@ -502,5 +522,6 @@ module.exports={
     addMeetingMetrics,
     syncGoogleCalenderToDB,
     analyzeTranscriptFile,
-    generateMom
+    generateMom,
+    performBackgroundAnalysis
 }
