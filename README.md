@@ -114,36 +114,6 @@ be/
 
 ---
 
-## 📡 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/refresh` - Refresh JWT token
-
-### User Management
-- `GET /api/user/profile` - Get user profile
-- `PUT /api/user/profile` - Update user profile
-- `DELETE /api/user/:id` - Delete user account
-
-### Meetings
-- `GET /api/meeting` - Get all meetings
-- `GET /api/meeting/:id` - Get meeting details
-- `POST /api/meeting` - Create a new meeting
-- `PUT /api/meeting/:id` - Update meeting
-- `DELETE /api/meeting/:id` - Delete meeting
-
-### Meeting Tasks
-- `GET /api/meeting/:id/tasks` - Get tasks for a meeting
-- `POST /api/meeting/:id/tasks` - Create task for meeting
-- `PUT /api/meeting/:id/tasks/:taskId` - Update task
-- `DELETE /api/meeting/:id/tasks/:taskId` - Delete task
-
-### Meeting Metrics
-- `GET /api/meeting/:id/metrics` - Get meeting metrics
-- `POST /api/meeting/:id/metrics` - Create metrics
-
----
 
 ## 🔐 Authentication
 
