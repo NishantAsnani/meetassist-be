@@ -184,7 +184,7 @@ async function syncGoogleCalenderToDB(user) {
       await meeting.bulkWrite(bulkOps);
     }
     
-    console.log(`Synced ${allEvents.length} events for user ${userId}`);
+    console.log(`Synced ${allEvents.length} events for user ${user.id}`);
 
   } catch (err) {
     console.error("Critical Sync Error:", err);
