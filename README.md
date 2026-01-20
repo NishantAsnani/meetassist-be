@@ -151,9 +151,9 @@ Password hashing is handled with **bcrypt** for secure storage.
 - AI-generated summary and insights
 
 ### Meeting Tasks
-- Task descriptions
-- Assigned to, due date, status
-- Associated meeting reference
+- Meeting Id
+- Discussion Items
+- Next Actions
 
 ### Meeting Metrics
 - Duration, participant count
