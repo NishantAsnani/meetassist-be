@@ -164,11 +164,40 @@ async function editUser(req, res) {
   }
 }
 
+async function getUserProfile(req,res){
+  try{
+    const userId=req.user.id;
+
+    const userProfile= await userServices.fetchUserById(userId);
+
+    
+    if(userProfile){
+      return sendSuccessResponse(
+        res,
+        {user:userProfile},
+        "User Profile Retrieved Successfully",
+        STATUS_CODE.OK
+      );
+    }
+
+
+
+  }catch(err){
+    return sendErrorResponse(
+      res,
+      {},
+      `Error Retrieving User Profile: ${err.message}`,
+      STATUS_CODE.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
 
 
 module.exports={
     getAllUsers,
     getUserById,
     deleteUser,
-    editUser
+    editUser,
+    getUserProfile
 }

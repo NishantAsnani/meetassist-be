@@ -30,6 +30,10 @@ const userSchema = new Schema({
     jiraAuthTokens:{
         type:Object,
         default:{}
+    },
+    isGoogleSynced:{
+      type:Boolean,
+      default:false
     }
 }, { timestamps: true });
 

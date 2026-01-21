@@ -44,7 +44,13 @@ async function Login(req, res) {
 
       return sendSuccessResponse(
         res,
-        {token,email},
+        {token,user:{
+          id:user._id,
+          name:user.name,
+          email:user.email,
+          institute:user.institute,
+          isGoogleSynced:user.isGoogleSynced,
+        }},
         "Logged In Sucessfully",
         STATUS_CODE.SUCCESS
       );
@@ -88,12 +94,27 @@ async function Signup(req, res) {
     });
 
     if (createUser) {
+      const token=jwt.sign(
+        { id: createUser._id,email:email },
+        jwtSecret,
+        { expiresIn: "24h" }
+      );
+
+
+
       return sendSuccessResponse(
         res,
-        {id:createUser._id},
+        {token,user:{
+          id:createUser._id,
+          name,
+          email,
+          institute,
+          isGoogleSynced:createUser.isGoogleSynced,
+        }},
         "User Created Successfully",
         STATUS_CODE.CREATED
       );
+      
     }
   } catch (err) {
     return sendErrorResponse(
@@ -139,18 +160,20 @@ async function getGoogleToken(req,res){
   try{
     const { code, state } = req.query;
     const userId = state;
+    
     const oauth2Client = getOAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
     
 
     const user=await User.findById(userId);
     user.googleTokens=tokens;
+    user.isGoogleSynced=true;
     await user.save();
 
     const syncGoogleToDatabase=await meetingServices.syncGoogleCalenderToDB(user);
 
     
-    res.redirect(`${process.env.FRONTEND_URL}/login`);
+    res.redirect(`${process.env.FRONTEND_URL}/calender`);
 
     
 

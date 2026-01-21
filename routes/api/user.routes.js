@@ -19,6 +19,8 @@ router.get('/fetchGoogleEvents',auth,authControllers.fetchGoogleCalenderEvents)
 
 router.get('/fetchGoogleCalendars',auth,authControllers.fetchGoogleCalenders)
 
+router.get('/getProfile',auth,userControllers.getUserProfile)
+
 router.get('/:id',auth,userControllers.getUserById)
 
 
