@@ -5,6 +5,8 @@ const meetingServices = require('../services/meeting.service');
 const meeting=require('../models/meetings');
 const meetingMetric=require('../models/meetingMetrics');
 const meetingTasks=require('../models/meetingTasks');
+const User=require('../models/users');
+const axios=require('axios');
 
 async function uploadAndProcessFile(req,res){
     const meetingId=req.body.meetingId;
@@ -421,24 +423,21 @@ Answer:`;
 }
 
 async function createJiraTicket(req,res) {
+  
 try{
-    const {
-    JIRA_EMAIL,
-    JIRA_API_TOKEN,
-    JIRA_BASE_URL,
-    JIRA_PROJECT_KEY
-  } = process.env;
+  const meetingTaskData=await meetingTasks.findOne({meetingId:req.body.id});
+  const meetingInfo=await meeting.findById(req.body.id);
+  const index=req.body.index;
+  const user=await User.findById(req.user.id);
+
+  const discussionItem=meetingTaskData.discussion_items[index];
+
+  const url = `https://api.atlassian.com/ex/jira/${user.jiraCloudId}/rest/api/3/issue`;
+  const validAccessToken = await meetingServices.refreshAndGetNewToken(user);
   
 
-  if (!JIRA_EMAIL || !JIRA_API_TOKEN || !JIRA_BASE_URL || !JIRA_PROJECT_KEY) {
-    throw new Error("Missing Jira environment variables");
-  }
 
-  console.log("Creating Jira ticket for meeting ID:", req.body.id);
-  console.log(req.body.id);
-  const meetingData=await meetingTasks.findOne({meetingId:req.body.id});
-  const meetingInfo=await meeting.findById(req.body.id);
-  if(!meetingData){
+  if(!meetingInfo){
     return sendErrorResponse(
         res,
         {},
@@ -447,69 +446,57 @@ try{
     )
   }
 
-  const summary=meetingInfo.title;
-  const description=meetingInfo.short_summary;
-  const issueType = "Task"; 
+  console.log('Creating Jira ticket with project key:', user.defaultJiraProjectKey);
+  
 
- 
-
-  // ✅ Node.js way (not btoa)
-  const credentials = Buffer
-    .from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`)
-    .toString("base64");
-
-  const response = await fetch(
-    `${JIRA_BASE_URL}/rest/api/3/issue`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Basic ${credentials}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+  const bodyData = {
+    fields: {
+      project: {
+        key: user.defaultJiraProjectKey 
       },
-      body: JSON.stringify({
-        fields: {
-          project: { key: JIRA_PROJECT_KEY },
-          summary,
-          description: {
-            type: "doc",
-            version: 1,
+      summary: discussionItem.title, 
+      description: {
+        type: "doc",
+        version: 1,
+        content: [
+          {
+            type: "paragraph",
             content: [
               {
-                type: "paragraph",
-                content: [
-                  {
-                    type: "text",
-                    text: description
-                  }
-                ]
+                type: "text",
+                text: discussionItem.description || "No description provided."
               }
             ]
-          },
-          issuetype: { name: issueType }
-        }
-      })
+          }
+        ]
+      },
+      issuetype: {
+        name:"Task"
+      }
     }
-  );
+    
+  };
 
-  const data = await response.json();
+  const response = await axios.post(url, bodyData, {
+      headers: {
+        'Authorization': `Bearer ${validAccessToken}`, 
+        'Content-Type': 'application/json'
+      }
+    });
 
-  if (!response.ok) {
-    console.error("Jira API Error:", data);
-    throw new Error(data.errorMessages?.[0] || "Jira ticket creation failed");
-  }
+    meetingTaskData.discussion_items[index].jiraStatus = 'created';
+    meetingTaskData.markModified('discussion_items');
+    await meetingTaskData.save();
+
+
 
     return sendSuccessResponse(
         res,
-        {
-            key: data.key,
-            url: `${JIRA_BASE_URL}/browse/${data.key}`
-        },
+        response.data,
         "Jira ticket created successfully",
         STATUS_CODE.SUCCESS
     )
 }catch(err){
-    console.log(err)
     return sendErrorResponse(
         res,
         {},
@@ -544,18 +531,7 @@ async function fetchMeetingTasks(req,res){
     }
 }
 
-async function automateCreateMeeting(req,res){
-    try{
 
-    }catch(err){
-        return sendErrorResponse(
-            res,
-            {},
-            "Internal Server Error",
-            STATUS_CODE.SERVER_ERROR
-        )
-    }
-}
 
 async function getMom(req,res){
     try{
@@ -597,7 +573,6 @@ module.exports={
     chatBotResponse,
     createJiraTicket,
     fetchMeetingTasks,
-    automateCreateMeeting,
     getMomStatus,
     getMom
 }

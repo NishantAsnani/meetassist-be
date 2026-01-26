@@ -2,7 +2,7 @@ const  User  = require("../models/users");
 
 async function fetchUserById(userId) {
   try {
-    const user = await User.findById(userId).select('name email institute isGoogleSynced');
+    const user = await User.findById(userId).select('name email institute isGoogleSynced isJiraSynced');
     
     return user;
   } catch (err) {

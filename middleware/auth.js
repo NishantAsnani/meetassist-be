@@ -12,11 +12,13 @@ async function auth(req, res, next) {
     if (!token) {
       return sendErrorResponse(res,"Token not found",{},STATUS_CODE.UNAUTHORIZED)
     }
-
     const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded;
     next();
   } catch (error) {
+    if(error.name==="TokenExpiredError"){
+      res.redirect(`${process.env.FRONTEND_URL}/login`)
+    }
     return sendErrorResponse(res,`Unknown error ${error}`,{},STATUS_CODE.UNAUTHORIZED)
   }
 }

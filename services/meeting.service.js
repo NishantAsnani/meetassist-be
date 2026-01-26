@@ -1,8 +1,8 @@
-const {formatTime, getOAuthClient, uploadPdfFile,generatePDF}=require('../utils/helper');
+const { formatTime, getOAuthClient, uploadPdfFile, generatePDF } = require('../utils/helper');
 const { AssemblyAI } = require('assemblyai');
-const {uploadTextFile}=require('../utils/helper');
-const meetingMetric=require('../models/meetingMetrics');
-const meeting=require('../models/meetings');
+const { uploadTextFile } = require('../utils/helper');
+const meetingMetric = require('../models/meetingMetrics');
+const meeting = require('../models/meetings');
 const { google } = require("googleapis");
 const User = require("../models/users");
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -11,104 +11,104 @@ const fs = require('fs');
 const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash-lite",
   generationConfig: {
-    temperature: 0.1, 
+    temperature: 0.1,
     maxOutputTokens: 2000,
   },
 });
-const meetingTask=require('../models/meetingTasks');
+const meetingTask = require('../models/meetingTasks');
+const axios = require('axios');
+async function processAudioFile(file, userId) {
+  try {
+    const client = new AssemblyAI({
+      apiKey: process.env.ASSEMBLY_AI_KEY
+    });
+    const startTime = Date.now();
 
-async function processAudioFile(file,userId) {
-    try {
-        const client = new AssemblyAI({
-    apiKey:process.env.ASSEMBLY_AI_KEY
-});
-    const startTime = Date.now(); 
+    const transcript = await client.transcripts.transcribe({
+      audio: file.buffer,
+      speaker_labels: true
+    });
 
-      const transcript = await client.transcripts.transcribe({
-        audio:file.buffer,
-        speaker_labels: true 
-      });
-    
-      const endTime = Date.now(); 
-      const processingTimeMs = endTime - startTime;
-    
-      if (transcript.status === 'error') {
-        console.error(`Transcription failed: ${transcript.error}`);
-        return;
-      }
-    
-      let formattedTranscript = '';
-    
-    
-      for (let utterance of transcript.utterances) {
-        const start = formatTime(utterance.start);
-        const end = formatTime(utterance.end);
-        formattedTranscript += `[${start} - ${end}] Speaker ${utterance.speaker}: ${utterance.text}\n`;
-      }
+    const endTime = Date.now();
+    const processingTimeMs = endTime - startTime;
 
-      const textBuffer = Buffer.from(formattedTranscript, 'utf-8');
+    if (transcript.status === 'error') {
+      console.error(`Transcription failed: ${transcript.error}`);
+      return;
+    }
+
+    let formattedTranscript = '';
 
 
-      const texFile=await uploadTextFile( textBuffer , userId);
+    for (let utterance of transcript.utterances) {
+      const start = formatTime(utterance.start);
+      const end = formatTime(utterance.end);
+      formattedTranscript += `[${start} - ${end}] Speaker ${utterance.speaker}: ${utterance.text}\n`;
+    }
+
+    const textBuffer = Buffer.from(formattedTranscript, 'utf-8');
+
+
+    const texFile = await uploadTextFile(textBuffer, userId);
 
 
 
-      
 
-      console.log(
-        ` Processing time: ${formatTime(processingTimeMs)} (${processingTimeMs} ms)`
-      );
-    
+
+    console.log(
+      ` Processing time: ${formatTime(processingTimeMs)} (${processingTimeMs} ms)`
+    );
+
     return {
-        status: 'success',
-        message: 'File processed successfully',
-        data: {textFile: texFile.data,transcript: formattedTranscript},
+      status: 'success',
+      message: 'File processed successfully',
+      data: { textFile: texFile.data, transcript: formattedTranscript },
     }
 
-    } catch (err) {
-        console.error("Error processing audio file:", err);
-        throw new Error(err);
-    }
+  } catch (err) {
+    console.error("Error processing audio file:", err);
+    throw new Error(err);
+  }
 }
 
-async function addMeetingMetrics(metricsResponse,meetingId){
-    try{
-        const metrics = {
-            engagement_score: metricsResponse.engagement_score,
-            speaker_balance: metricsResponse.speaker_balance,
-            meetingId: meetingId,
-            silence_ratio: metricsResponse.silence_ratio,
-            off_topic_score: metricsResponse.off_topic_score,
-            conflict_level: metricsResponse.conflict_level,
-            time_utilization: metricsResponse.time_utilization,
-            meeting_resolution: metricsResponse.meeting_resolution,
-            meeting_roi: metricsResponse.meeting_roi
-        }
-
-        await meetingMetric.create(metrics);
-
-        await meeting.findByIdAndUpdate(meetingId, {
-            short_summary: metricsResponse.short_summary,
-            long_summary: metricsResponse.long_summary,
-            improvements: metricsResponse.improvements
-        });
-
-        return {
-            status: 'success',
-            message: 'Meeting metrics added successfully',
-            data: metrics,
-        }
-
-    }catch(err){
-        throw new Error(err);
+async function addMeetingMetrics(metricsResponse, meetingId) {
+  try {
+    const metrics = {
+      engagement_score: metricsResponse.engagement_score,
+      speaker_balance: metricsResponse.speaker_balance,
+      meetingId: meetingId,
+      silence_ratio: metricsResponse.silence_ratio,
+      off_topic_score: metricsResponse.off_topic_score,
+      conflict_level: metricsResponse.conflict_level,
+      time_utilization: metricsResponse.time_utilization,
+      meeting_resolution: metricsResponse.meeting_resolution,
+      meeting_roi: metricsResponse.meeting_roi
     }
+
+    await meetingMetric.create(metrics);
+
+    await meeting.findByIdAndUpdate(meetingId, {
+      short_summary: metricsResponse.short_summary,
+      long_summary: metricsResponse.long_summary,
+      improvements: metricsResponse.improvements
+    });
+
+    return {
+      status: 'success',
+      message: 'Meeting metrics added successfully',
+      data: metrics,
+    }
+
+  } catch (err) {
+    throw new Error(err);
+  }
 }
 
 async function syncGoogleCalenderToDB(user) {
   try {
     const oauth2Client = getOAuthClient();
     oauth2Client.setCredentials(user.googleTokens);
-    
+
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
     // 1. Get all Calendar IDs
@@ -120,7 +120,7 @@ async function syncGoogleCalenderToDB(user) {
     // 2. Loop through EACH calendar
     for (const calId of calendarIds) {
       let pageToken = null;
-      
+
       // 3. Inner Loop: Pagination for the specific calendar
       do {
         try {
@@ -137,16 +137,16 @@ async function syncGoogleCalenderToDB(user) {
 
           for (const event of events) {
             // Only add events that have summary and time
-            if(event.summary && (event.start?.dateTime || event.start?.date)) {
-                allEvents.push({
-                    google_event_id: event.id,
-                    calendar_id: calId, // Use the actual calendar ID loop variable
-                    summary: event.summary,
-                    description: event.description || "",
-                    start_time: event.start?.dateTime || event.start?.date,
-                    end_time: event.end?.dateTime || event.end?.date,
-                    meet_link: event.hangoutLink || null,
-                });
+            if (event.summary && (event.start?.dateTime || event.start?.date)) {
+              allEvents.push({
+                google_event_id: event.id,
+                calendar_id: calId, // Use the actual calendar ID loop variable
+                summary: event.summary,
+                description: event.description || "",
+                start_time: event.start?.dateTime || event.start?.date,
+                end_time: event.end?.dateTime || event.end?.date,
+                meet_link: event.hangoutLink || null,
+              });
             }
           }
 
@@ -154,7 +154,7 @@ async function syncGoogleCalenderToDB(user) {
         } catch (calErr) {
           console.error(`Failed to sync calendar ${calId}:`, calErr.message);
           // Continue to next calendar even if one fails
-          break; 
+          break;
         }
       } while (pageToken);
     }
@@ -183,7 +183,7 @@ async function syncGoogleCalenderToDB(user) {
     if (bulkOps.length > 0) {
       await meeting.bulkWrite(bulkOps);
     }
-    
+
     console.log(`Synced ${allEvents.length} events for user ${user.id}`);
 
   } catch (err) {
@@ -192,7 +192,7 @@ async function syncGoogleCalenderToDB(user) {
   }
 }
 
-async function analyzeTranscriptFile(meetingId,textFile) {
+async function analyzeTranscriptFile(meetingId, textFile) {
   try {
     const PROMPT = `
         Act as a professional Meeting Analyst. Your task is to analyze the provided timestamped transcript and return a structured analysis strictly in JSON format. [1]
@@ -268,7 +268,7 @@ async function analyzeTranscriptFile(meetingId,textFile) {
         }
         `;
 
-    const TASKS_PROMPT=`
+    const TASKS_PROMPT = `
         Act as a professional Meeting Intelligence Analyst. Your task is to analyze a timestamped, speaker-diarized meeting transcript and extract structured insights strictly in JSON format.
 
         ANALYSIS OBJECTIVES:
@@ -369,9 +369,9 @@ async function analyzeTranscriptFile(meetingId,textFile) {
     for (let attempt = 1; attempt <= 10; attempt++) {
       try {
         const result = await model.generateContent(PROMPT);
-        const extraTasks=await model.generateContent(TASKS_PROMPT);
+        const extraTasks = await model.generateContent(TASKS_PROMPT);
         const text = result.response.text();
-        const tasks= extraTasks.response.text();
+        const tasks = extraTasks.response.text();
 
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -386,22 +386,22 @@ async function analyzeTranscriptFile(meetingId,textFile) {
 
 
 
-        const metrics={
-            engagement_score: data.metrics.engagement_score,
-            speaker_balance: data.metrics.speaker_balance,
-            silence_ratio: data.metrics.silence_ratio,
-            off_topic_score: data.metrics.off_topic_score,
-            conflict_level: data.metrics.conflict_level,
-            time_utilization: data.metrics.time_utilization,
-            meeting_resolution: data.metrics.meeting_resolution,
-            meeting_roi: data.metrics.meeting_roi,
-            meetingId: meetingId
+        const metrics = {
+          engagement_score: data.metrics.engagement_score,
+          speaker_balance: data.metrics.speaker_balance,
+          silence_ratio: data.metrics.silence_ratio,
+          off_topic_score: data.metrics.off_topic_score,
+          conflict_level: data.metrics.conflict_level,
+          time_utilization: data.metrics.time_utilization,
+          meeting_resolution: data.metrics.meeting_resolution,
+          meeting_roi: data.metrics.meeting_roi,
+          meetingId: meetingId
         }
 
-        const taskAnalysis={
-            discussion_items: tasksData.discussion_items,
-            next_actions:tasksData.next_actions,
-            meetingId: meetingId
+        const taskAnalysis = {
+          discussion_items: tasksData.discussion_items,
+          next_actions: tasksData.next_actions,
+          meetingId: meetingId
         }
 
         await meetingMetric.create(metrics);
@@ -409,15 +409,15 @@ async function analyzeTranscriptFile(meetingId,textFile) {
         await meetingTask.create(taskAnalysis);
 
         await meeting.findByIdAndUpdate(meetingId, {
-            short_summary: data.summaries.short_summary,
-            long_summary: data.summaries.long_summary,
-            improvements: data.feedback.improvements
+          short_summary: data.summaries.short_summary,
+          long_summary: data.summaries.long_summary,
+          improvements: data.feedback.improvements
         });
 
         return {
-            status: 'success',
-            message: 'Meeting metrics added successfully',
-            data: metrics,
+          status: 'success',
+          message: 'Meeting metrics added successfully',
+          data: metrics,
         }
       } catch (err) {
         console.warn(`⚠️ Attempt ${attempt} failed: ${err.message}`);
@@ -434,7 +434,7 @@ async function analyzeTranscriptFile(meetingId,textFile) {
 }
 
 
-async function generateMom(meetingId,transcript) {
+async function generateMom(meetingId, transcript) {
   const SYSTEM_PROMPT = `Role: You are an expert corporate secretary and project documentation assistant.
 
 Task: Given a raw meeting transcript, extract all relevant information and generate a complete, professionally formatted Minutes of Meeting (MoM) using the following structure.
@@ -496,56 +496,155 @@ Ensure:
 - No missing fields unless truly unavailable
 - Professional corporate language
 - Return ONLY valid JSON, no markdown formatting or additional text`;
-  try{
-    
-  const Meeting=await meeting.findById(meetingId);
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: process.env.MODEL_NAME });
-  const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nTranscript:\n${transcript}`);
-  const clean = res.response.text().replace(/```json|```/g, "").trim();
-  const momData= JSON.parse(clean);
+  try {
 
-  const pdf=await generatePDF(momData,Meeting);
+    const Meeting = await meeting.findById(meetingId);
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: process.env.MODEL_NAME });
+    const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nTranscript:\n${transcript}`);
+    const clean = res.response.text().replace(/```json|```/g, "").trim();
+    const momData = JSON.parse(clean);
+
+    const pdf = await generatePDF(momData, Meeting);
 
 
-  const uploadedMom=await uploadPdfFile(pdf,Meeting.userId);
+    const uploadedMom = await uploadPdfFile(pdf, Meeting.userId);
 
-  return uploadedMom;
+    return uploadedMom;
 
-  }catch(err){
+  } catch (err) {
     throw new Error(err);
   }
 }
 
 
-  async function performBackgroundAnalysis(meetingId, transcript) {
-    console.log(`Starting background analysis for meeting: ${meetingId}`);
-    const analyzeTextFile = await analyzeTranscriptFile(meetingId, transcript);
+async function performBackgroundAnalysis(meetingId, transcript) {
+  console.log(`Starting background analysis for meeting: ${meetingId}`);
+  const analyzeTextFile = await analyzeTranscriptFile(meetingId, transcript);
 
-    await meeting.findByIdAndUpdate(meetingId, {
-        MomStatus:'processing'
-    });
-    const Mom = await generateMom(meetingId, transcript);
+  await meeting.findByIdAndUpdate(meetingId, {
+    MomStatus: 'processing'
+  });
+  const Mom = await generateMom(meetingId, transcript);
 
-    
-    await meeting.findByIdAndUpdate(meetingId, {
-        Mom: Mom.data.fullPath,
-        MomStatus:'completed'
-    });
 
-    console.log(`Background analysis completed for meeting: ${meetingId}`);
+  await meeting.findByIdAndUpdate(meetingId, {
+    Mom: Mom.data.fullPath,
+    MomStatus: 'completed'
+  });
+
+  console.log(`Background analysis completed for meeting: ${meetingId}`);
 }
 
 
 
 
+const getJiraProjects = async (cloudId, tokens) => {
+
+  if (!cloudId || !tokens?.access_token) {
+    console.error("Missing Jira credentials for user:", cloudId);
+    return [];
+  }
 
 
-module.exports={
-    processAudioFile,
-    addMeetingMetrics,
-    syncGoogleCalenderToDB,
-    analyzeTranscriptFile,
-    generateMom,
-    performBackgroundAnalysis
+  const url = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/project/search`;
+
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`,
+        'Accept': 'application/json'
+      }
+    });
+
+
+    const projects = response.data.values.map(project => ({
+      id: project.id,
+      key: project.key,
+      name: project.name,
+      style: project.style
+    }));
+
+    console.log(`Found ${projects.length} Jira projects for user.`);
+    return projects;
+
+  } catch (error) {
+    throw new Error(`Error fetching Jira projects: ${error.message}`);
+
+  }
+};
+
+async function createInitialProject(cloudId, tokens) {
+  try {
+    const randomSuffix = Math.floor(Math.random() * 900) + 100;
+    const uniqueKey = `MEET${randomSuffix}`;
+
+    const meUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/myself`;
+    const meRes = await axios.get(meUrl, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` }
+    });
+    const myAccountId = meRes.data.accountId;
+
+
+
+    const newProjectRes = await axios.post(createUrl, {
+      key: uniqueKey,
+      name: "Meeting Action Items",
+      projectTypeKey: "software",
+      projectTemplateKey: "com.pyxis.greenhopper.jira:gh-simplified-kanban-classic",
+      leadAccountId: myAccountId,
+      assigneeType:"PROJECT_LEAD"
+    }, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` }
+    });
+
+    return newProjectRes;
+
+
+  } catch (err) {
+    throw new Error(`Error creating Jira project: ${err.message}`);
+  }
+
+
+}
+
+
+
+async function refreshAndGetNewToken(user) {
+  try {
+    const response = await axios.post('https://auth.atlassian.com/oauth/token', {
+      grant_type: 'refresh_token',
+      client_id: process.env.JIRA_CLIENT_ID,
+      client_secret: process.env.JIRA_CLIENT_SECRET,
+      refresh_token: user.jiraAuthTokens.refresh_token 
+    });
+
+    user.jiraAuthTokens = response.data;
+    await user.save();
+
+    console.log("Jira Token Refreshed Successfully for user:", user._id);
+    return response.data.access_token;
+  } catch (error) {
+    console.error("Failed to refresh Jira token:", error.response?.data);
+    throw new Error("Jira session expired. Please reconnect Jira.");
+  }
+}
+
+const toTitleCase = (str) => {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
+
+
+module.exports = {
+  processAudioFile,
+  addMeetingMetrics,
+  syncGoogleCalenderToDB,
+  analyzeTranscriptFile,
+  generateMom,
+  performBackgroundAnalysis,
+  getJiraProjects,
+  createInitialProject,
+  refreshAndGetNewToken,
+  toTitleCase
 }

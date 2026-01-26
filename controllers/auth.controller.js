@@ -9,6 +9,7 @@ const {getOAuthClient}=require("../utils/helper");
 const {google}=require("googleapis");
 const axios=require("axios");
 const meetingServices=require("../services/meeting.service");
+const meeting=require('../models/meetings');
 async function Login(req, res) {
   try {
     const { email, password } = req.body;
@@ -130,6 +131,7 @@ async function googleSignup(req,res){
   try{
 
     const oauth2Client = getOAuthClient();
+    const userId=req.query.userId || req.user.id;
     
     
 
@@ -137,7 +139,7 @@ async function googleSignup(req,res){
       access_type: "offline",
       prompt: "consent",
       scope: ["https://www.googleapis.com/auth/calendar.readonly"],
-      state: req.query.userId, // 🔑 
+      state: userId, // 🔑 
     });
 
     sendSuccessResponse(
@@ -160,6 +162,8 @@ async function getGoogleToken(req,res){
   try{
     const { code, state } = req.query;
     const userId = state;
+
+    console.log("Google OAuth Callback hit for userId:", userId);
     
     const oauth2Client = getOAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
@@ -179,6 +183,7 @@ async function getGoogleToken(req,res){
 
     
   }catch(err){
+    console.log(err)
     return sendErrorResponse(
       res,
       {},
@@ -281,15 +286,22 @@ async function fetchGoogleCalenders(req,res){
 
 async function jiraSignup(req,res){
   try{
-     const  userId  = req.query.userId;
-    console.log("User ID:", userId); // Debugging line
+    const  meetingId  = req.query.meetingId;
+    console.log("Jira Signup endpoint hit for meetingId:", meetingId);
+
+    const scopes = [
+    'read:jira-work',  
+    'write:jira-work', 
+    'read:jira-user',  
+    'offline_access'   
+  ].join(' ');
   const authUrl =
       `${process.env.JIRA_AUTH_URL}` +
       `?audience=api.atlassian.com` +
       `&client_id=${process.env.JIRA_CLIENT_ID}` +
-      `&scope=${encodeURIComponent('read:jira-work read:jira-user')}` +
+      `&scope=${encodeURIComponent(scopes)}` +
       `&redirect_uri=${encodeURIComponent(process.env.JIRA_REDIRECT_URI)}` +
-      `&state=${userId}` +
+      `&state=${meetingId}` +
       `&response_type=code` +
       `&prompt=consent`;
 
@@ -309,56 +321,77 @@ async function jiraSignup(req,res){
   }
 }
 
-async function getJiraToken(req,res){
-  try{
-    const { code, state: userId } = req.query;
-    
-  const tokenRes = await axios.post(
+async function getJiraToken(req, res) {
+  try {
+    const { code, state: meetingId } = req.query;
+
+
+    const tokenRes = await axios.post(
       process.env.JIRA_TOKEN_URL,
       {
         grant_type: "authorization_code",
         client_id: process.env.JIRA_CLIENT_ID,
         client_secret: process.env.JIRA_CLIENT_SECRET,
         code,
-        redirect_uri: process.env.JIRA_REDIRECT_URI
+        redirect_uri: process.env.JIRA_REDIRECT_URI,
       },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        }
-      }
+      { headers: { "Content-Type": "application/json" } }
     );
 
-    console.log("Jira Token Response:", tokenRes.data); // Debugging line
+    const tokens = tokenRes.data;
+    const meetingData = await meeting.findById(meetingId).populate('userId');
+    
+  
+    console.log(meetingData);
 
-  const tokens = tokenRes.data;
-  const user = await User.findById(userId);
+    const resourceRes = await axios.get(
+      "https://api.atlassian.com/oauth/token/accessible-resources",
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    );
 
-  console.log("User before saving Jira tokens:", tokens); // Debugging line
-  user.jiraAuthTokens = tokens;
+    const cloudId = resourceRes.data[0].id;
 
 
-  await user.save();
+    let selectedProjectKey = null;
+    let selectedProjectName = null;
 
-  // Fetch Cloud ID
-  const resourceRes = await axios.get(
-    "https://api.atlassian.com/oauth/token/accessible-resources",
-    { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-  );
-  console.log("Jira Accessible Resources Response:", resourceRes.data); // Debugging line
 
-  user.jiraCloudId = resourceRes.data[0].id;
-  await user.save();
 
-  return sendSuccessResponse(
-    res,
-    {},
-    `Jira connected for user ${userId}`,
-    STATUS_CODE.SUCCESS
-  )
-}catch(err){
+    const projects = await meetingServices.getJiraProjects(cloudId, tokens);
 
-  console.log(err)
+    if (projects.length > 0) {
+
+      const preferred = projects.find(p => p.key.includes("MEET") || p.name.includes("Meeting"));
+      const target = preferred || projects[0];
+
+      selectedProjectKey = target.key;
+      selectedProjectName = target.name;
+
+
+    } else {
+      // CASE B: User has NO projects -> Auto-Create one
+
+      const newProjectRes = await meetingServices.createInitialProject(cloudId, tokens);
+
+      selectedProjectKey = newProjectRes.data.key;
+      selectedProjectName = "Meeting Action Items";
+    }
+
+
+
+    meetingData.userId.jiraAuthTokens = tokens;
+    meetingData.userId.jiraCloudId = cloudId;
+    meetingData.userId.isJiraSynced = true;
+    if (selectedProjectKey) {
+      meetingData.userId.defaultJiraProjectKey = selectedProjectKey;
+      meetingData.userId.defaultJiraProjectName = selectedProjectName;
+    }
+
+    await meetingData.userId.save();
+
+    res.redirect(`${process.env.FRONTEND_URL}/dashboard/${meetingId}`);
+  } catch (err) {
+    console.log(err);
     return sendErrorResponse(
       res,
       {},
@@ -367,7 +400,6 @@ async function getJiraToken(req,res){
     );
   }
 }
-
 
 module.exports = {
   Login,

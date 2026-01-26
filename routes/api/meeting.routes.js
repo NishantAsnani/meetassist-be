@@ -8,9 +8,9 @@ const {upload,uploadAudioFiletoSupaBase}=require('../../utils/helper');
 
 router.post('/processFile',auth,upload.single('file'),meetingControllers.uploadAndProcessFile)
 
-router.post('/chatResponse',auth,meetingControllers.chatBotResponse)
+router.post('/chatResponse',auth,meetingControllers.chatBotResponse);
 
-router.post('/createJiraTicket',auth,meetingControllers.createJiraTicket)
+router.post('/createJiraTicket',auth,meetingControllers.createJiraTicket);
 
 router.get('/',auth,meetingControllers.getAllMeetings)
 

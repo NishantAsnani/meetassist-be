@@ -34,6 +34,18 @@ const userSchema = new Schema({
     isGoogleSynced:{
       type:Boolean,
       default:false
+    },
+    isJiraSynced:{
+      type:Boolean,
+      default:false
+    },
+    defaultJiraProjectKey:{
+      type:String,
+      default:""
+    },
+    defaultJiraProjectName:{
+      type:String,
+      default:""
     }
 }, { timestamps: true });
 
