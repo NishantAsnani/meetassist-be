@@ -1,0 +1,103 @@
+services:
+  mongo-db:
+    container_name: mongo-db
+    image: mongo
+    ports:
+      - "27018:27017"
+    networks: 
+      - sail
+    restart: always
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+  
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: 
+      - sail
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  worker:
+    build:
+      context: ./be
+    env_file:
+      - path: "./be/.dev.env"
+    depends_on:
+      - redis
+    command: npm run worker
+    networks:
+      - sail
+
+  backend1:
+    build:
+      context: ./be
+    image: sail_backend1
+    container_name: sail_backend1
+    env_file:
+      - path: "./be/.dev.env"
+    environment:
+      SERVER_NAME: backend1
+    depends_on: 
+      - mongo-db
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+    - sail
+
+  backend2:
+    build:
+      context: ./be
+    image: sail_backend2
+    container_name: sail_backend2
+    env_file:
+      - path: "./be/.dev.env"
+    environment:
+      SERVER_NAME: backend2
+    depends_on: 
+      - mongo-db
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+    - sail
+  
+  
+  
+  nginx:
+    build:
+      context: ./fe
+    container_name: "nginx"
+    ports:
+      - "80:80"
+    depends_on:
+      - backend1
+      - backend2
+    networks:
+      - sail
+  
+
+networks:
+  sail:
+
+volumes:
+  redis-data:
+
