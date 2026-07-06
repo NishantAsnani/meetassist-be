@@ -9,7 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fs = require('fs');
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash-lite",
+  model: "gemini-3.1-flash-lite",
   generationConfig: {
     temperature: 0.1,
     maxOutputTokens: 2000,
@@ -420,12 +420,13 @@ async function analyzeTranscriptFile(meetingId, textFile) {
           data: metrics,
         }
       } catch (err) {
-        console.warn(`⚠️ Attempt ${attempt} failed: ${err.message}`);
-        if (err.message.includes("503") || err.message.includes("overloaded")) {
-          console.log("Waiting 5 seconds before retry...");
-          await wait(5000); // Wait 5 seconds for server capacity
-        }
-        if (attempt === 10) throw err;
+        console.log(err);
+        // console.warn(`⚠️ Attempt ${attempt} failed: ${err.message}`);
+        // if (err.message.includes("503") || err.message.includes("overloaded")) {
+        //   console.log("Waiting 5 seconds before retry...");
+        //   await wait(5000); 
+        // }
+        // if (attempt === 10) throw err;
       }
     }
   } catch (fileErr) {
@@ -513,6 +514,7 @@ Ensure:
     return uploadedMom;
 
   } catch (err) {
+    console.log(err);
     throw new Error(err);
   }
 }

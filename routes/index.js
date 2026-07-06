@@ -7,7 +7,7 @@ router.use('/user',userRoutes)
 router.use('/meeting',meetingRoutes)
 
 router.get('/', (req, res) => {
-  res.send('Welcome to the API BROOOO!!!!');
+  res.send(`Welcome to the API BROOOO!!!! by ${process.env.SERVER_NAME}`);
 });
 
 module.exports=router

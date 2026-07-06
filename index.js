@@ -7,15 +7,22 @@ const cors=require('cors')
 const routes=require('./routes/index')
 const bodyParser=require('body-parser')
 const dbconnection=require('./db');
+const http =require('http');
+const server= http.createServer(app);
+const {initializeSocket}=require('./utils/socket')
 
 
-
+initializeSocket(server);
 (async ()=>{
   await dbconnection()
 })();
+require("./utils/queueEvents");
 
-
-app.use(cors());
+app.use(cors(
+  {
+    origin:"http://localhost:5173"
+  }
+));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -26,6 +33,6 @@ app.use('/api',routes)
 
 
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

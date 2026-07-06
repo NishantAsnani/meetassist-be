@@ -112,6 +112,7 @@ async function uploadPdfFile(pdfBuffer, userId) {
 
 async function getFileFromSupabase(filePath) {
   try {
+    console.log("Downloading:", filePath);
     const { data, error } = await supabaseClient.storage
       .from("SAIL")
       .download(filePath);

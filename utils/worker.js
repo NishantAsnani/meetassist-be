@@ -6,6 +6,7 @@ const { getSignedUrl } = require('./helper');
 const dbconnection = require('../db');
 const meeting = require('../models/meetings');
 
+
 // Connect to database before processing any jobs
 (async () => {
   await dbconnection();
@@ -46,11 +47,15 @@ const worker = new Worker('submission-queue', async (job) => {
         }
 
         console.log(`✅ [Job ${job.id}] Transcription complete`);
+        await job.updateProgress({ stage: "transcription-completed", meetingId, userId });
+        
 
         // ── Step 4: Update meeting with text file path ──
         await meeting.findByIdAndUpdate(meetingId, {
             textFilePath: processFile.data.textFile.fullPath
         });
+        await job.updateProgress({ stage: "analyzing-metrics-completed", meetingId, userId });
+
 
         // ── Step 5: Run background analysis (metrics + tasks + MoM generation) ──
         console.log(`📊 [Job ${job.id}] Running analysis & generating MoM...`);
