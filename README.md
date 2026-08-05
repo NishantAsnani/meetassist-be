@@ -4,6 +4,8 @@ SAIL is a meeting intelligence backend that helps teams capture meeting content,
 
 This repository contains the Express-based backend service that powers user authentication, meeting processing, Google/Jira integrations, background task execution, and AI-assisted meeting outputs.
 
+Frontend repository: https://github.com/NishantAsnani/SAIL_FE
+
 ## Project Overview
 
 The backend is designed to support the full meeting workflow:
@@ -17,7 +19,7 @@ The backend is designed to support the full meeting workflow:
 - Background queue processing with Redis and BullMQ
 - Real-time updates through Socket.IO
 
-This repository is the backend for the SAIL platform and works with the frontend application that consumes its APIs.
+This repository is the backend for the SAIL platform and works with the frontend application that consumes its APIs. The frontend for this backend is hosted at https://github.com/NishantAsnani/SAIL_FE.
 
 ## Tech Stack
 
