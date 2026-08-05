@@ -1,181 +1,230 @@
 # SAIL Backend
 
-**SAIL** is an intelligent meeting assistant platform that helps teams extract actionable insights, generate summaries, and track tasks from their meetings.
+SAIL is a meeting intelligence backend that helps teams capture meeting content, derive actionable insights, and connect those insights with calendar, task, and AI workflows.
 
-## 📋 Project Overview
+This repository contains the Express-based backend service that powers user authentication, meeting processing, Google/Jira integrations, background task execution, and AI-assisted meeting outputs.
 
-This is the **backend** repository for the SAIL project. It provides REST APIs for:
-- User authentication and management
-- Meeting information management
-- Meeting metrics and analytics
-- Task tracking and management
-- Integration with Google Calendar and Jira
+## Project Overview
 
-**Frontend Repository:** [https://github.com/MahekRohitGor/Innovate4_frontend]
+The backend is designed to support the full meeting workflow:
 
----
+- User sign-up, login, and profile management
+- Google Calendar authentication and event retrieval
+- Meeting upload and processing
+- AI-generated chat responses and meeting summaries
+- Jira ticket creation based on meeting outcomes
+- Meeting metrics, tasks, and structured meeting data storage
+- Background queue processing with Redis and BullMQ
+- Real-time updates through Socket.IO
 
-## 🛠️ Tech Stack
+This repository is the backend for the SAIL platform and works with the frontend application that consumes its APIs.
 
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Database:** MongoDB (via Mongoose)
-- **Authentication:** JWT (JSON Web Tokens) + Bcrypt
-- **File Storage:** Supabase
-- **Audio Processing:** AssemblyAI
-- **AI Integration:** Google Generative AI
-- **Calendar Integration:** Google Calendar API
-- **Project Management:** Jira API
-- **PDF Generation:** PDFKit
-- **Monitoring:** New Relic
-- **File Upload:** Multer
+## Tech Stack
 
----
+- Node.js
+- Express.js
+- MongoDB with Mongoose
+- JWT authentication with bcrypt
+- Redis + BullMQ for background jobs
+- Socket.IO for real-time communication
+- Supabase for file storage and upload handling
+- AssemblyAI for transcription / audio processing
+- Google Generative AI for meeting intelligence
+- Google Calendar API for calendar sync
+- Jira API for task / issue generation
+- PDFKit for PDF reporting
+- New Relic for monitoring
 
-## 📁 Project Structure
+## Core Architecture
 
-```
+The server entry point is [index.js](index.js), which:
+
+1. Initializes the Express app
+2. Connects to MongoDB
+3. Starts the HTTP server
+4. Initializes Socket.IO
+5. Mounts all API routes under `/api`
+
+The route layer is organized as follows:
+
+- `routes/index.js` - top-level route aggregator
+- `routes/api/user.routes.js` - user-related endpoints
+- `routes/api/meeting.routes.js` - meeting-related endpoints
+
+The project follows a simple layered structure:
+
+- `controllers/` - request handlers
+- `services/` - business logic and external integrations
+- `models/` - MongoDB schemas
+- `middleware/` - auth and request middleware
+- `utils/` - reusable helpers, constants, response handlers, queue/workers
+
+## Main Features
+
+### Authentication and User Management
+
+The backend allows users to:
+
+- Sign up and log in
+- Access protected endpoints using JWT
+- Connect to Google and Jira via OAuth flows
+- Retrieve and update profile data
+
+### Meeting Processing
+
+Meeting-related APIs support:
+
+- Uploading meeting files
+- Processing uploaded content for meeting insights
+- Querying meeting details and meeting metrics
+- Fetching action items / meeting tasks
+- Downloading meeting output such as MOM PDFs
+
+### External Integrations
+
+This backend integrates with several external systems:
+
+- Google Calendar for reading calendar events
+- Jira for creating tickets from meeting outcomes
+- Supabase for storage
+- AssemblyAI and Gemini for audio / AI processing
+
+### Background Processing
+
+The project uses Redis-backed queues to process background work through BullMQ and worker utilities. This allows heavy operations to happen asynchronously instead of blocking the API request lifecycle.
+
+## Project Structure
+
+```text
 be/
-├── controllers/           # Request handlers
-│   ├── auth.controller.js
-│   ├── meeting.controllers.js
-│   └── user.controller.js
-├── models/               # Database schemas
-│   ├── meetings.js
-│   ├── meetingMetrics.js
-│   ├── meetingTasks.js
-│   └── users.js
-├── routes/               # API routes
-│   ├── api/
-│   │   ├── meeting.routes.js
-│   │   └── user.routes.js
-│   └── index.js
-├── services/             # Business logic
-│   ├── auth.service.js
-│   ├── meeting.service.js
-│   └── user.service.js
-├── middleware/           # Express middleware
-│   └── auth.js           # JWT authentication
-├── db/                   # Database connection
-│   └── index.js
-├── utils/                # Helper utilities
-│   ├── constants.js
-│   ├── helper.js
-│   └── response.js
-├── seeders/              # Sample data
-│   └── data.json
-├── index.js              # Application entry point
-├── newrelic.js           # New Relic configuration
-└── package.json
+├── controllers/              # HTTP controller layer
+├── services/                 # Core application logic
+├── models/                   # MongoDB schemas
+├── routes/                   # API routing
+├── middleware/               # Auth and request middleware
+├── utils/                    # Shared helpers, queue, socket, response utilities
+├── db/                       # Database connection setup
+├── seeders/                  # Seed data
+├── tests/                    # Test files
+├── index.js                  # App bootstrap
+├── package.json              # Dependencies and scripts
+└── .sample.env               # Environment variable template
 ```
 
----
+## Environment Variables
 
-## 🚀 Getting Started
+Copy `.sample.env` to `.env` and fill in the required values.
+
+Key variables include:
+
+- `PORT`
+- `MONGODB_URI`
+- `DB_NAME`
+- `JWT_SECRET`
+- `FRONTEND_URL`
+- `SUPABASE_SECRET_KEY`
+- `SUPABASE_PROJECT_URL`
+- `ASSEMBLY_AI_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `JIRA_CLIENT_ID`
+- `JIRA_CLIENT_SECRET`
+- `JIRA_REDIRECT_URI`
+- `JIRA_AUTH_URL`
+- `JIRA_TOKEN_URL`
+- `GEMINI_API_KEY`
+- `MODEL_NAME`
+- `NEW_RELIC_LICENSE_KEY`
+- `NEW_RELIC_APP_NAME`
+
+## Local Setup
 
 ### Prerequisites
-- Node.js (v14 or higher)
+
+- Node.js 22 or newer
 - MongoDB instance
-- Environment variables (see below)
+- Redis instance
+- Environment variables configured in `.env`
 
-### Installation
+### Install Dependencies
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd be
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables:**
-   Copy `.sample.env` to `.env` and update with your credentials:
-   ```bash
-   cp .sample.env .env
-   ```
-   Then edit `.env` and add your actual API keys and secrets for:
-   - MongoDB connection string
-   - JWT secret
-   - Google OAuth credentials
-   - Supabase credentials
-   - AssemblyAI API key
-   - Google Generative AI key
-   - Jira API token
-   - New Relic license key
-
-4. **Start the server:**
-   ```bash
-   npm start
-   ```
-   The server will run on `http://localhost:3000`
-
----
-
-
-## 🔐 Authentication
-
-The API uses **JWT (JSON Web Tokens)** for authentication. Include the token in the `Authorization` header:
-
-```
-Authorization: Bearer <your-jwt-token>
+```bash
+npm install
 ```
 
-Password hashing is handled with **bcrypt** for secure storage.
+### Run the Backend
 
----
+```bash
+npm start
+```
 
-## 🎙️ Key Features
+By default, the app runs on:
 
-- **Meeting Recording & Transcription:** Integrate with AssemblyAI for audio processing
-- **AI-Powered Summaries:** Uses Google Generative AI for intelligent meeting summaries
-- **Calendar Integration:** Sync with Google Calendar
-- **Task Management:** Track action items from meetings
-- **Metrics & Analytics:** Generate insights from meeting data
-- **PDF Reports:** Generate meeting summaries as PDFs
-- **File Storage:** Secure file uploads via Supabase
+```text
+http://localhost:3000
+```
 
----
+## Docker Setup
 
-## 📝 Database Models
+A `docker-compose.yml` file is included for running the backend with supporting services.
 
-### Users
-- Email, password, profile information
-- Google authentication details
+Typical services in the stack:
 
-### Meetings
-- Meeting title, description, date/time
-- Attendees, recording/transcript links
-- AI-generated summary and insights
+- MongoDB
+- Redis
+- Backend containers
+- NGINX
 
-### Meeting Tasks
-- Meeting Id
-- Discussion Items
-- Next Actions
+To start everything:
 
-### Meeting Metrics
-- Duration, participant count
-- Sentiment analysis
-- Key topics discussed
-- Engagement metrics
+```bash
+docker-compose up --build
+```
 
----
+## API Conventions
 
-## 🤝 Contributing
+All routes are mounted under `/api`.
 
-1. Create a new branch for your feature
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
+### Authentication
 
----
+Protected endpoints require a JWT token in the `Authorization` header:
 
-## 📞 Support
+```http
+Authorization: Bearer <token>
+```
 
-For issues or questions, please open an issue on the GitHub repository.
+### Main Route Groups
 
----
+- `/api/user` - user authentication, profile, and Google/Jira sync routes
+- `/api/meeting` - meeting upload, task, metrics, and MOM endpoints
+
+## Typical Workflow
+
+A typical end-to-end flow looks like this:
+
+1. User signs up or logs in
+2. User connects Google Calendar and/or Jira
+3. Meeting file is uploaded to the backend
+4. The backend processes the file and stores meeting-related data
+5. AI endpoints generate summaries, metrics, or chat responses
+6. Meeting tasks and outputs are returned to the frontend
+
+## Important Notes
+
+- The backend is configured to allow requests from the frontend at `http://localhost:5173`.
+- The worker process is started through the `npm run worker` script.
+- Redis and MongoDB must be available for full functionality.
+
+## Contribution Guidelines
+
+1. Create a feature branch
+2. Keep changes scoped and well-documented
+3. Update environment configuration when introducing new integrations
+4. Verify API behavior before opening a pull request
+
+## Support
+
+For questions, issues, or feature requests, use the repository issue tracker or contact the project maintainers.
 
 
